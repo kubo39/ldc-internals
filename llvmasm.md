@@ -63,3 +63,15 @@ clangなどと同様に、`llvm::InlineAsm`から`llvm::CallInst`を構築する
 ```cpp
 auto call = gIR->createInlineAsmCall(loc, ia, operands, indirectTypes);
 ```
+
+LLVMのCallInstを構築するだけで、他はソースコードの行対応を行う処理くらい。
+関数属性などはいじらない。
+
+```cpp
+llvm::CallInst *
+IRState::createInlineAsmCall(const Loc &loc, llvm::InlineAsm *ia,
+                             llvm::ArrayRef<llvm::Value *> args,
+                             llvm::ArrayRef<llvm::Type *> indirectTypes) {
+  llvm::CallInst *call = ir->CreateCall(ia, args);
+  addInlineAsmSrcLoc(loc, call);
+```
