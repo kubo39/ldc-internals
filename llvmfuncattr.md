@@ -165,3 +165,88 @@ LDCではruntime関数を特別扱いしてカスタムで関数属性を付与�
   createFwdDecl(LINK::c, Type::tvoid, {"_d_assert", "_d_arraybounds"},
                 {stringTy, uintTy}, {}, Attr_Cold_NoReturn);
 ```
+
+## 未定義動作
+
+かつでLDCでは以下のコードは未定義動作になった。
+
+```d
+noreturn infiniteLoop()
+{
+    for (;;) {  }
+}
+
+void main()
+{
+    auto x = infiniteLoop();
+}
+```
+
+現在では[readonlyがwillreturnをinferするのをやめた](https://reviews.llvm.org/D95288)ため、上のコードはちゃんと無限ループになる。
+
+```console
+$ ldc2 -O3 --output-ll infiniteloop.d
+```
+
+```ll
+(...)
+; [#uses = 0]
+; Function Attrs: nofree norecurse noreturn nosync nounwind memory(none) uwtable
+define void @_D12infiniteloop12infiniteLoopFZNn() local_unnamed_addr #0 {
+  br label %forcond
+
+forcond:                                          ; preds = %forcond, %0
+  br label %forcond
+}
+
+; [#uses = 1]
+; Function Attrs: nofree norecurse noreturn nosync nounwind memory(none) uwtable
+define i32 @_Dmain({ i64, { i64, i8* }* } %unnamed) #1 {
+  br label %forcond.i
+
+forcond.i:                                        ; preds = %forcond.i, %0
+  br label %forcond.i
+}
+(...)
+```
+
+willreturn属性を付与すると以前の挙動を確認できる。
+
+```d
+import ldc.attributes;
+
+@llvmAttr("willreturn")
+noreturn infiniteLoop()
+{
+    for (;;) {  }
+}
+
+void main()
+{
+    auto x = infiniteLoop();
+}
+```
+
+吐かれるLLVM IRが変わっている。
+
+```ll
+(...)
+; [#uses = 0]
+; Function Attrs: mustprogress nofree norecurse noreturn nosync nounwind willreturn memory(none) uwtable
+define void @_D12infiniteloop12infiniteLoopFZNn() local_unnamed_addr #0 {
+  unreachable
+}
+
+; [#uses = 1]
+; Function Attrs: mustprogress nofree norecurse noreturn nosync nounwind willreturn memory(none) uwtable
+define i32 @_Dmain({ i64, { i64, i8* }* } %unnamed) #1 {
+  unreachable
+}
+(...)
+```
+
+```console
+$ ldc2 -O3 infiniteloop.d
+$ ./infiniteloop
+Segmentation fault
+```
