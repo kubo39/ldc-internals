@@ -126,7 +126,9 @@ version (LDC)
   return EmitMemCpy(CI->getOperand(0), CI->getOperand(2), size, 1, B);
 ```
 
-#### 再現コード
+#### 実験コード？
+
+**以下の内容は要検証**
 
 ```d
 auto arrayCopy()
