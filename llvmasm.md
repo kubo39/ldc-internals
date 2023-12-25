@@ -75,3 +75,24 @@ IRState::createInlineAsmCall(const Loc &loc, llvm::InlineAsm *ia,
   llvm::CallInst *call = ir->CreateCall(ia, args);
   addInlineAsmSrcLoc(loc, call);
 ```
+
+LDC inlime assemblyにsideeffectが付与されていることは以下のコードで確認できる。
+
+```d
+import ldc.llvmasm;
+
+/**
+// ldc2 -O --output-ll llvmasm.d
+(...)
+; Function Attrs: uwtable
+define void @_D7llvmasm3fooFZv() local_unnamed_addr #0 {
+  tail call void asm sideeffect "nop", "~{memory}"() #1, !srcloc !1
+  ret void
+(...)
+attributes #1 = { nounwind }
+*/
+void foo()
+{
+    __asm("nop", "~{memory}");
+}
+```
