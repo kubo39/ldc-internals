@@ -67,7 +67,7 @@ Value *ArraySliceCopyOpt::CallOptimizer(Function *Callee, CallInst *CI,
 ```
 
 ArraySliceCopyはLDCで独自にもっている実装になっている。
-DMDのものとの違いは明示的にllvm.memcpy intrinsicを利用している点である。
+DMDのものとの違いは引数の数と明示的にllvm.memcpy intrinsicを利用している点である。
 
 ```d
 version (LDC)
