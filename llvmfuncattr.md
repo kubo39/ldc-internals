@@ -64,6 +64,30 @@ passInMemoryの実装もアーキテクチャごとに異なる。
 以上からこれはRVOを行っているということがなんとなくわかる。
 この場合はNoAlias属性を付与してもおそらく問題はないだろう。
 
+NoAlias属性がRVOで付与されているかは以下のようなコードで確認ができる。
+
+```d
+struct S
+{
+    int[8] arr;
+}
+
+/**
+// ldc2 -O --output-ll foo.d
+(...)
+; Function Attrs: mustprogress nofree nosync nounwind willreturn memory(argmem: readwrite) uwtable
+define void @_D3fooQeFZSQj1S(%foo.S* noalias nocapture writeonly sret(%foo.S) align 4 %.sret_arg) local_unnamed_addr #0 {
+  %1 = bitcast %foo.S* %.sret_arg to i8*          ; [#uses = 1]
+  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* noundef nonnull align 4 dereferenceable(32) %1, i8* noundef nonnull align 16 dereferenceable(32) bitcast ([8 x i32]* @.arrayliteral to i8*), i64 32, i1 false)
+  ret void
+}
+*/
+S foo()
+{
+    return S([0, 0, 0, 0, 0, 0, 0, 42]);
+}
+```
+
 ## gen/runtime.cpp
 
 LDCではruntime関数を特別扱いしてカスタムで関数属性を付与している。
