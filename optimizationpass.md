@@ -128,8 +128,6 @@ version (LDC)
 
 #### 実験コード？
 
-**以下の内容は要検証**
-
 ```d
 auto arrayCopy()
 {
@@ -191,13 +189,11 @@ define void @_D9arraycopy9arrayCopyFZ4copyFNaNbNiNfAiQcZv({ i64, i32* } %a_arg, 
 (...)
 ```
 
-- おまけ: --disable-simplify-drtcallsをさらに追加した場合
+しかし `--disable-simplify-drtcalls` をさらに追加した場合でも同じ最適化になる。ここではSimplifyDRuntimeCallsの最適化は効いていないらしい。
 
 ```console
 $ ldc2 -O2 --release --checkaction=halt --boundscheck=off --disable-simplify-drtcalls --output-ll arraycopy.d
 ```
-
-llvm.memcpyにおちてるので、simplifyDRuntimeCallsなくてもLLVMがいい感じにやってくれている可能性がある。
 
 ```ll
 (...)
@@ -211,3 +207,5 @@ define void @_D9arraycopy9arrayCopyFZ4copyFNaNbNiNfAiQcZv({ i64, i32* } %a_arg, 
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 1 %1, i8* align 1 %2, i64 %3, i1 false)
   ret void
 ```
+
+まあこういうこともある(??)
