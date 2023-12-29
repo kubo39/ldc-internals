@@ -171,41 +171,21 @@ define void @_D9arraycopy9arrayCopyFZ4copyFNaNbNiNfAiQcZv({ i64, i32* } %a_arg, 
   ret void
 ```
 
-##### `ldc2  -O2 --release --checkaction=halt --boundscheck=off --output-ll arraycopy.d` の場合
+##### `ldc2 -O2 --output-ll arraycopy.d` の場合
 
-copy関数が`llvm.memcpy`を利用するように変化していることがわかる。
-
-```ll
-(...)
-define void @_D9arraycopy9arrayCopyFZ4copyFNaNbNiNfAiQcZv({ i64, i32* } %a_arg, { i64, i32* } %b_arg) local_unnamed_addr #1 {
-  %a_arg.fca.0.extract = extractvalue { i64, i32* } %a_arg, 0 ; [#uses = 1]
-  %a_arg.fca.1.extract = extractvalue { i64, i32* } %a_arg, 1 ; [#uses = 1]
-  %b_arg.fca.1.extract = extractvalue { i64, i32* } %b_arg, 1 ; [#uses = 1]
-  %1 = bitcast i32* %a_arg.fca.1.extract to i8*   ; [#uses = 1]
-  %2 = bitcast i32* %b_arg.fca.1.extract to i8*   ; [#uses = 1]
-  %3 = shl i64 %a_arg.fca.0.extract, 2            ; [#uses = 1]
-  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 1 %1, i8* align 1 %2, i64 %3, i1 false)
-  ret void
-(...)
-```
-
-しかし `--disable-simplify-drtcalls` をさらに追加した場合でも同じ最適化になる。ここではSimplifyDRuntimeCallsの最適化は効いていないらしい。
-
-```console
-$ ldc2 -O2 --release --checkaction=halt --boundscheck=off --disable-simplify-drtcalls --output-ll arraycopy.d
-```
+O2を加えた場合この最適化パスを通ることになるはずだが、ここでは最適化の効果がみられていない。
 
 ```ll
-(...)
-define void @_D9arraycopy9arrayCopyFZ4copyFNaNbNiNfAiQcZv({ i64, i32* } %a_arg, { i64, i32* } %b_arg) local_unnamed_addr #1 {
-  %a_arg.fca.0.extract = extractvalue { i64, i32* } %a_arg, 0 ; [#uses = 1]
-  %a_arg.fca.1.extract = extractvalue { i64, i32* } %a_arg, 1 ; [#uses = 1]
-  %b_arg.fca.1.extract = extractvalue { i64, i32* } %b_arg, 1 ; [#uses = 1]
-  %1 = bitcast i32* %a_arg.fca.1.extract to i8*   ; [#uses = 1]
-  %2 = bitcast i32* %b_arg.fca.1.extract to i8*   ; [#uses = 1]
-  %3 = shl i64 %a_arg.fca.0.extract, 2            ; [#uses = 1]
-  tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* align 1 %1, i8* align 1 %2, i64 %3, i1 false)
+define void @_D9arraycopy9arrayCopyFZ4copyFNaNbNiNfAiQcZv({ i64, i32* } %dest_arg, { i64, i32* } %src_arg) local_unnamed_addr #0 {
+  %dest_arg.fca.0.extract = extractvalue { i64, i32* } %dest_arg, 0 ; [#uses = 1]
+  %dest_arg.fca.1.extract = extractvalue { i64, i32* } %dest_arg, 1 ; [#uses = 1]
+  %src_arg.fca.0.extract = extractvalue { i64, i32* } %src_arg, 0 ; [#uses = 1]
+  %src_arg.fca.1.extract = extractvalue { i64, i32* } %src_arg, 1 ; [#uses = 1]
+  %1 = bitcast i32* %dest_arg.fca.1.extract to i8* ; [#uses = 1]
+  %2 = bitcast i32* %src_arg.fca.1.extract to i8* ; [#uses = 1]
+  tail call void @_d_array_slice_copy(i8* nocapture %1, i64 %dest_arg.fca.0.extract, i8* nocapture %2, i64 %src_arg.fca.0.extract, i64 4) #1
   ret void
+}
 ```
 
-まあこういうこともある(??)
+おそらく、この最適化を行うための情報が欠けているためと思われる。
