@@ -211,7 +211,7 @@ define void @arrayCopy() local_unnamed_addr #0 {
 }
 ```
 
-### `--disable-simplify-drtcalls`を付与した場合
+##### `--disable-simplify-drtcalls`を付与した場合
 
 これだけでは実際にsimplify-drtcallsが効いたのか判別できないので、この最適化だけ無効にした状態で再度LLVM IRをみてみる。
 
@@ -236,3 +236,36 @@ define void @arrayCopy() local_unnamed_addr #0 {
 ```
 
 `_d_array_slice_copy`が呼ばれていることが確認できたので、simplify-drtcallsが効いていることがわかった。
+
+#### 実験コード(だめな例)
+
+意図的にだめな例を作ってみよう。
+
+以下のコードはxとyがオーバーラップするように調整している。そのため、このコードが実行されると`_enforceNoOverlap`でひっかかってエラーになるはずである。
+
+```d
+pragma(mangle, "arrayCopy")
+auto arrayCopy()
+{
+    int[4] a = [1, 2, 3, 4];
+    int[] x = a[0..2];
+    int[] y = a[1..3];
+    x[] = y[];
+    return;
+}
+```
+
+このコードに対してもし最適化されてしまうと挙動が変わってしまうことになるため、最適化オプションを有効にしてもllvm.memcpyへのloweringは行われない。
+
+```ll
+(...)
+define void @arrayCopy() local_unnamed_addr #0 {
+  %a = alloca <4 x i32>, align 16                 ; [#uses = 3, size/byte = 16]
+  %.fca.1.gep = getelementptr inbounds <4 x i32>, <4 x i32>* %a, i64 0, i64 1 ; [#uses = 1, type = i32*]
+  store <4 x i32> <i32 1, i32 2, i32 3, i32 4>, <4 x i32>* %a, align 16
+  %1 = bitcast <4 x i32>* %a to i8*               ; [#uses = 1]
+  %2 = bitcast i32* %.fca.1.gep to i8*            ; [#uses = 1]
+  call void @_d_array_slice_copy(i8* nocapture nonnull %1, i64 2, i8* nocapture nonnull %2, i64 2, i64 4) #1
+  ret void
+}
+```
