@@ -62,60 +62,6 @@ foo:
 
 一番大きな違いは`\t.p2align\t4, 0x90`が`\t.p2align\t2`に変わっている点である。
 
-LLVMがAlign Directiveを出力する箇所は以下のようになっている。
-
-```cpp
-void MCAsmStreamer::emitAlignmentDirective(unsigned ByteAlignment,
-                                           std::optional<int64_t> Value,
-                                           unsigned ValueSize,
-                                           unsigned MaxBytesToEmit) {
-  if (MAI->useDotAlignForAlignment()) {
-    if (!isPowerOf2_32(ByteAlignment))
-      report_fatal_error("Only power-of-two alignments are supported "
-                         "with .align.");
-    OS << "\t.align\t";
-    OS << Log2_32(ByteAlignment);
-    EmitEOL();
-    return;
-  }
-
-  // Some assemblers don't support non-power of two alignments, so we always
-  // emit alignments as a power of two if possible.
-  if (isPowerOf2_32(ByteAlignment)) {
-    switch (ValueSize) {
-    default:
-      llvm_unreachable("Invalid size for machine code value!");
-    case 1:
-      OS << "\t.p2align\t";
-      break;
-    case 2:
-      OS << ".p2alignw ";
-      break;
-    case 4:
-      OS << ".p2alignl ";
-      break;
-    case 8:
-      llvm_unreachable("Unsupported alignment size!");
-    }
-
-    OS << Log2_32(ByteAlignment);
-
-    if (Value.has_value() || MaxBytesToEmit) {
-      if (Value.has_value()) {
-        OS << ", 0x";
-        OS.write_hex(truncateToSize(*Value, ValueSize));
-      } else {
-        OS << ", ";
-      }
-
-      if (MaxBytesToEmit)
-        OS << ", " << MaxBytesToEmit;
-    }
-    EmitEOL();
-    return;
-  }
-```
-
 [p2align directive](https://sourceware.org/binutils/docs/as/P2align.html)の説明をみたところ、2つめのオペランドは多くのアーキテクチャではnop命令がくるようだ。`0x90`はx86のnop命令だがRISC-Vではnop命令は違っているため、
 単に無視されてしまっているのだろう。
 
