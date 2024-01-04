@@ -1,38 +1,51 @@
 # naked function
 
-LDCのnaked functionはLLVMのNaked関数属性ではなくModuleInlineAsmとして実現されている。
+## `@naked`
 
-```cpp
-  gIR->module.appendModuleInlineAsm(asmstr.str());
+LLVMのnaked関数属性と対応している。
+
+- runtime/druntime/src/ldc/attributes.d
+
+```d
+/**
+ * Adds LLVM's "naked" attribute to a function, disabling function prologue /
+ * epilogue emission, incl. LDC's.
+ * Intended to be used in combination with a function body defined via
+ * ldc.llvmasm.__asm() and/or ldc.simd.inlineIR().
+ */
+enum naked = llvmAttr("naked");
 ```
 
-そのほかで特徴はOS環境ごとにASMディレクティブを用いて関数として実装している。
-
-## Align Directive
-
-ここではLinuxやベアメタルに絞って内容をみていく。
+- gen/functions.cpp
 
 ```cpp
-  if (isDarwin) {
-(...)
-  else if (isWin) {
-(...)
-  } else {
-    if (fd->isInstantiated()) {
-      asmstr << "\t.section\t.text." << mangle << ",\"axG\",@progbits,"
-             << mangle << ",comdat" << std::endl;
-      asmstr << "\t.weak\t" << mangle << std::endl;
-    } else {
-      asmstr << "\t.text" << std::endl;
-      asmstr << "\t.globl\t" << mangle << std::endl;
+  // @naked: emit body and return, no prologue/epilogue
+  if (func->hasFnAttribute(llvm::Attribute::Naked)) {
+    Statement_toIR(fd->fbody, gIR);
+    const bool wasDummy = eraseDummyAfterReturnBB(gIR->scopebb());
+    if (!wasDummy && !gIR->scopereturned()) {
+      // this is what clang does to prevent LLVM complaining about
+      // non-terminated function
+      gIR->ir->CreateUnreachable();
     }
-    asmstr << "\t.p2align\t4, 0x90" << std::endl;
-    asmstr << "\t.type\t" << mangle << ",@function" << std::endl;
-    asmstr << mangle << ":" << std::endl;
+    return;
   }
 ```
 
-たとえばRISC-V 32bit向けに実際にアセンブリを生成してみると、少し上のコードとは違った内容が出力されていることがわかる。
+RISC-V 32bit向けに実際にアセンブリを生成してみる。
+
+```d
+import ldc.attributes : naked;
+import ldc.llvmasm;
+
+pragma(mangle, "foo")
+@naked void foo()
+{
+  __asm(`
+      ret
+  `, "");
+}
+```
 
 ```console
 ldc2 -mtriple=riscv32-unknown-none-elf -betterC --output-s app.d
@@ -60,33 +73,32 @@ foo:
         .section        ".note.GNU-stack","",@progbits
 ```
 
-一番大きな違いは`\t.p2align\t4, 0x90`が`\t.p2align\t2`に変わっている点である。
+## D's x86 Inline Assembler
 
-[p2align directive](https://sourceware.org/binutils/docs/as/P2align.html)の説明をみたところ、2つめのオペランドは多くのアーキテクチャではnop命令がくるようだ。`0x90`はx86のnop命令だがRISC-Vではnop命令は違っているため、
-単に無視されてしまっているのだろう。
+[D言語のInlineAssembler構文のnaked](https://dlang.org/spec/iasm.html#naked)はLLVMのNaked関数属性ではなくModuleInlineAsmとして実現されている。
 
-実際に`x86_64`では`.p2align\t, 0x90`が出力されている。
-
-```console
-ldc2 -betterC --output-s app.d
+```cpp
+  gIR->module.appendModuleInlineAsm(asmstr.str());
 ```
 
-```s
-        .text
-        .file   "app.d"
-        .section        .text.foo,"ax",@progbits
-        .globl  foo
-        .p2align        4, 0x90
-        .type   foo,@function
-foo:
-        .cfi_startproc
-        #APP
-        retq
-        #NO_APP
-.Lfunc_end0:
-        .size   foo, .Lfunc_end0-foo
-        .cfi_endproc
+そのほかで特徴はOS環境ごとにASMディレクティブを用いて関数として実装している。以下はLinuxやベアメタルの例。
 
-        .ident  "ldc version 1.35.0"
-        .section        ".note.GNU-stack","",@progbits
+```cpp
+  if (isDarwin) {
+(...)
+  else if (isWin) {
+(...)
+  } else {
+    if (fd->isInstantiated()) {
+      asmstr << "\t.section\t.text." << mangle << ",\"axG\",@progbits,"
+             << mangle << ",comdat" << std::endl;
+      asmstr << "\t.weak\t" << mangle << std::endl;
+    } else {
+      asmstr << "\t.text" << std::endl;
+      asmstr << "\t.globl\t" << mangle << std::endl;
+    }
+    asmstr << "\t.p2align\t4, 0x90" << std::endl;
+    asmstr << "\t.type\t" << mangle << ",@function" << std::endl;
+    asmstr << mangle << ":" << std::endl;
+  }
 ```
