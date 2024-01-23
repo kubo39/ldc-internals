@@ -117,7 +117,8 @@ $ rg EscapeEnumerator ./llvm/lib/
 ./llvm/lib/Transforms/Instrumentation/ThreadSanitizer.cpp
 47:#include "llvm/Transforms/Utils/EscapeEnumerator.h"
 483:  EscapeEnumerator EE(F, "tsan_ignore_cleanup", ClHandleCxxExceptions);
-577:    EscapeEnumerator EE(F, "tsan_cleanup", ClHandleCxxExceptions);```
+577:    EscapeEnumerator EE(F, "tsan_cleanup", ClHandleCxxExceptions);
+```
 
 Shadow Stack GCについては、これは[LLVMが提供しているGC APIのうちのひとつ](https://llvm.org/docs/GarbageCollection.html#the-shadow-stack-gc)で、LDCはこれを利用していない。
 
