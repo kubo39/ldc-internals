@@ -124,7 +124,7 @@ Shadow Stack GCについては、これは[LLVMが提供しているGC APIのう
 
 Thread Sanitizerに関してはsanitizerオプションとして提供しているが、普通のプログラムの場合はこの実装は考慮しなくてもよさそうだ。
 
-## classifyEHPersonality関数
+## TargetLoweringObjectFileXCOFF::ShouldEmitEHBlock
 
 そうなるとclassifyEHPersonality関数のほうが気になってくるが、この関数に渡す文字列はどこからくるだろうか。
 
@@ -155,6 +155,8 @@ bool TargetLoweringObjectFileXCOFF::ShouldEmitEHBlock(
 
 上の関数ではgetPersonalityFn関数でpersonality関数の取得を行っている。
 
+## LDC側からみるpersonality関数の設置
+
 llvm/lib/IR/Function.cppではpersonality関数を設定する関数がある。
 
 ```cpp
@@ -168,8 +170,6 @@ void Function::setPersonalityFn(Constant *Fn) {
   setValueSubclassDataBit(3, Fn != nullptr);
 }
 ```
-
-## LDC側からみるpersonality関数の設置
 
 設定はLDC側で行っているはずだ。
 
@@ -226,3 +226,52 @@ llvm::BasicBlock *TryCatchFinallyScopes::emitLandingPad() {
 - EHPersonality::Unknownでほとんどのケースでは影響はない
 - XCOFFの場合、ShouldEmitEHBlock関数の結果がtrueになってしまうことで最適化に影響が出てしまうかもしれない
 - 他にも例外情報(landingPadsなど)を生成する箇所で最適化の影響が出るかもしれない
+
+とまあこういった感じでみてきたが、そもそもEHPersonality::Dを定義したところでこれはShouldEmitEHBlockの結果に影響を与えても問題ないのだろうか。
+と思ったけどisNoOpWithoutInvoke関数の内容みると問題ないか。
+
+一応LDCのpersonality関数の実装をみてみる。
+
+EHPersonality::Dに相当するものは`_d_eh_personality`関数となるが、これはMSVC環境以外で用いられる。
+
+```cpp
+  // int _d_eh_personality(...)
+  {
+    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+      const char *fname =
+          useMSVCEH() ? "__CxxFrameHandler3" : "_d_eh_personality";
+      // (ptr ExceptionRecord, ptr EstablisherFrame, ptr ContextRecord,
+      //  ptr DispatcherContext)
+      createFwdDecl(LINK::c, intTy, {fname},
+                    {voidPtrTy, voidPtrTy, voidPtrTy, voidPtrTy});
+    } else if (global.params.targetTriple->getArch() == llvm::Triple::arm) {
+      // (int state, ptr ucb, ptr context)
+      createFwdDecl(LINK::c, intTy, {"_d_eh_personality"},
+                    {intTy, voidPtrTy, voidPtrTy});
+    } else {
+      // (int ver, int actions, ulong eh_class, ptr eh_info, ptr context)
+      createFwdDecl(LINK::c, intTy, {"_d_eh_personality"},
+                    {intTy, intTy, ulongTy, voidPtrTy, voidPtrTy});
+    }
+  }
+```
+
+`_d_eh_personality`関数の実装はdruntime/src/rt/dwrfeh.dにある。
+
+```d
+(snip...)
+else  // !ARM_EABI_UNWINDER
+{
+    extern (C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
+                   _Unwind_Exception_Class exceptionClass, _Unwind_Exception* exceptionObject,
+                   _Unwind_Context* context)
+    {
+        if (ver != 1)
+            return _URC_FATAL_PHASE1_ERROR;
+
+        return _d_eh_personality_common(actions, exceptionClass, exceptionObject, context);
+    }
+}
+```
+
+ここで気になるのがmingw/cygwinではどうなるのか？というところだが、とりあえずおいておく。
