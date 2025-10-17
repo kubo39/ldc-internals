@@ -2,7 +2,7 @@
 
 ## cross module inlining
 
-LDCはinlineヒント(`pragma(inline, true)`であれ`pragma(LDC_always_inline)`であれ)があるか、`willCrossModuleInline`がtrueの場合はcross module inliningを行うようになっている。
+LDCはinlineヒント(`pragma(inline, true)`であれ`pragma(LDC_always_inline)`であれ)があるか、`willCrossModuleInline`がtrueの場合かつインライン可能である場合にcross module inliningを行うようになっている。
 
 - https://github.com/ldc-developers/ldc/blob/32f6b5ba62429335c92a260265ae4060ce8342da/gen/function-inlining.cpp#L94-L112
 
@@ -26,6 +26,9 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
     IF_LOG Logger::println("Commandline flags indicate no inlining");
     return false;
   }
+(...)
+  if (fdecl.inlining != PINLINE::always && !isInlineCandidate(fdecl))
+    return false;
 ```
 
 `willCrossModuleInline`は`cross-module-inlining`コマンドラインオプションが有効かつコンパイラ内のインラインコスト計算でインライン可能であると判定した場合にtrueを返す。
