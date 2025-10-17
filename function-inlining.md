@@ -29,7 +29,7 @@ bool defineAsExternallyAvailable(FuncDeclaration &fdecl) {
 ```
 
 `willCrossModuleInline`は`cross-module-inlining`コマンドラインオプションが有効かつコンパイラ内のインラインコスト計算でインライン可能であると判定した場合にtrueを返す。
-(`cross-module-inlining`は隠しフラグになっている)
+(`cross-module-inlining`は隠しフラグになっている)(`IN_JITRT`はここでは常にfalse返すけどinline hintあるときはインライン化するのはいいんだろうか)
 
 - https://github.com/ldc-developers/ldc/blob/32f6b5ba62429335c92a260265ae4060ce8342da/gen/optimizer.cpp#L167-L173
 
