@@ -2,6 +2,8 @@
 
 ## cross module inlining
 
+D言語ではモジュール境界を超える関数のインライン化は普通の関数のインライン化と条件が異なっている。
+
 LDCはinlineヒント(`pragma(inline, true)`であれ`pragma(LDC_always_inline)`であれ)があるか、`willCrossModuleInline`がtrueの場合かつインライン可能である場合にcross module inliningを行うようになっている。
 
 - https://github.com/ldc-developers/ldc/blob/32f6b5ba62429335c92a260265ae4060ce8342da/gen/function-inlining.cpp#L94-L112
