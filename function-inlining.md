@@ -4,7 +4,7 @@
 
 D言語ではモジュール境界を超える関数のインライン化は普通の関数のインライン化と条件が異なっている。
 
-LDCはinlineヒント(`pragma(inline, true)`であれ`pragma(LDC_always_inline)`であれ)があるか、`willCrossModuleInline`がtrueの場合かつインライン可能である場合にcross module inliningを行うようになっている。
+LDCはinlineヒント(`pragma(inline, true)`であれ`pragma(LDC_always_inline)`であれ)があるか、`willCrossModuleInline`がtrueの場合かつインライン可能である場合にcross module inliningを行うようになっている。(このパス以外にもLTOを利用した場合はcross-module inliningが行われるが、ここでは割愛する)
 
 - https://github.com/ldc-developers/ldc/blob/32f6b5ba62429335c92a260265ae4060ce8342da/gen/function-inlining.cpp#L94-L112
 
@@ -61,7 +61,7 @@ cross-module inliningを行う場合、関数定義に影響する。
   }
 ```
 
-最終的にLLVM側に情報を渡すのはこちら
+最終的にLLVM側に情報を渡すのはこちら。AvailableExternallyLinkageを利用することでLLVM IRをインライン化する。
 
 - https://github.com/ldc-developers/ldc/blob/32f6b5ba62429335c92a260265ae4060ce8342da/gen/functions.cpp#L1147-L1154
 
