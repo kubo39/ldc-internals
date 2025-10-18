@@ -102,3 +102,6 @@ foo:
     asmstr << mangle << ":" << std::endl;
   }
 ```
+
+ここで.sectionや.typeなどのアセンブラディレクティブで `@progbits` `@function` のように@を利用していることが確認できる。
+LLVMはGNUとの互換性のために[ARMアセンブラの構文において@はコメントの開始を意味する](https://sourceware.org/binutils/docs/as/Section.html#Section)ため%を利用することになっているが、D言語のインラインアセンブラ構文はx86のみサポートしているためここでは問題にならない。
